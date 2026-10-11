@@ -14,7 +14,7 @@ if (validate_version '0.20261010.1; echo unsafe') 2>/dev/null; then die "Accepte
 for invalid in 0.20261010.01 0.20261010.0 0.20261010.1234567890; do
 	if (validate_version "$invalid") 2>/dev/null; then die "Accepted a noncanonical version"; fi
 done
-if (require_release_context) 2>/dev/null; then die "Allowed local publishing"; fi
+if (GITHUB_ACTIONS=false require_release_context) 2>/dev/null; then die "Allowed local publishing"; fi
 if (GITHUB_ACTIONS=true GITHUB_REPOSITORY=shields/mute-on-lock GITHUB_REF=refs/pull/1/merge require_release_context) 2>/dev/null; then
 	die "Allowed pull-request publishing"
 fi

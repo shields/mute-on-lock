@@ -118,14 +118,24 @@ the need for GitHub release and Homebrew automation here.
 
 ## Dotfiles rollout
 
-The dotfiles provisioning hook restarts and verifies an installed service after
-Homebrew upgrades. It leaves machines without the formula unchanged. After the
-first bottle is published, add the tap and formula to the macOS Brewfile:
+Dotfiles provisioning upgrades formulae through Homebrew Bundle, which starts
+and restarts services declared in the Brewfile. After the first bottle is
+published, add the tap and formula to the macOS Brewfile:
 
 ```sh
 brew bundle add --file=brew/macos.Brewfile --tap shields/tap
 brew bundle add --file=brew/macos.Brewfile --formula shields/tap/mute-on-lock
 ```
+
+Set the formula entry's service option so Bundle starts the login service and
+restarts it when the formula is installed or upgraded:
+
+```ruby
+brew "shields/tap/mute-on-lock", trusted: true, restart_service: :changed
+```
+
+Plain `brew upgrade` still needs the explicit service restart shown above. There
+is no application-specific provisioning hook.
 
 Review the tap's trust declaration using the existing Brewfile conventions and
 commit those entries before running provisioning. Deferring these entries keeps
@@ -135,6 +145,7 @@ Primary references:
 [GitHub runner images](https://github.com/actions/runner-images),
 [Homebrew bottles](https://docs.brew.sh/Bottles),
 [Homebrew services](https://docs.brew.sh/Formula-Cookbook#service-files),
+[Homebrew Bundle](https://docs.brew.sh/Brew-Bundle-and-Brewfile#advanced-brewfiles),
 [Apple notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution),
 [Apple release testing](https://developer.apple.com/forums/thread/130560), and
 [GitHub automatic merges](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-auto-merge-for-pull-requests-in-your-repository).

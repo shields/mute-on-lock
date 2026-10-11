@@ -16,7 +16,9 @@ formula_blob=$(gh api "repos/$tap_repo/git/trees/$main_tree?recursive=1" --jq '.
 if [[ -n $formula_blob ]]; then
 	current_formula=$(gh api "repos/$tap_repo/git/blobs/$formula_blob" --jq .content | base64 --decode)
 	current_version=$(sed -n 's/^  version "\([^"]*\)".*/\1/p' <<<"$current_formula")
-	if [[ $(compare_versions "$release_version" "$current_version") != newer ]]; then exit 0; fi
+	# Conditional expressions discard command-substitution exit status.
+	version_order=$(compare_versions "$release_version" "$current_version")
+	if [[ $version_order != newer ]]; then exit 0; fi
 fi
 branch_refs=$(gh api "repos/$tap_repo/git/matching-refs/heads/$branch_name")
 branch_commit=$(jq --raw-output --arg ref "refs/heads/$branch_name" '.[] | select(.ref == $ref) | .object.sha' <<<"$branch_refs")
@@ -45,6 +47,7 @@ if [[ -z $pr_number ]]; then
 		--title "Update mute-on-lock to $release_version" --body-file dist/tap-pr-body.txt
 	pr_number=$(gh pr list --repo "$tap_repo" --head "$branch_name" --state open --json number --jq '.[0].number')
 fi
-if [[ $(gh pr view "$pr_number" --repo "$tap_repo" --json autoMergeRequest --jq '.autoMergeRequest == null') == true ]]; then
+auto_merge_needed=$(gh pr view "$pr_number" --repo "$tap_repo" --json autoMergeRequest --jq '.autoMergeRequest == null')
+if [[ $auto_merge_needed == true ]]; then
 	gh pr merge "$pr_number" --repo "$tap_repo" --auto --squash
 fi

@@ -76,5 +76,9 @@ then run `make setup`. Use `make build`, `make test`, `make lint`, and
 and run with coverage. Development binaries identify themselves as development
 builds.
 
+Release automation and installation updates are documented in
+[Releases and updates](docs/releases.md). GitHub Actions builds and checks the
+SwiftPM executable; signed releases begin after the one-time setup.
+
 Copyright © 2026 Michael Shields. Licensed under Apache-2.0; see
 [LICENSE](LICENSE).

@@ -1,0 +1,47 @@
+# Copyright © 2026 Michael Shields
+# SPDX-License-Identifier: Apache-2.0
+
+class MuteOnLock < Formula
+  desc "Mute speakers when macOS locks while leaving headphones playing"
+  homepage "https://github.com/shields/mute-on-lock"
+  url "https://github.com/shields/mute-on-lock/archive/refs/tags/v@@VERSION@@.tar.gz"
+  version "@@VERSION@@"
+  sha256 "@@SOURCE_SHA256@@"
+  license "Apache-2.0"
+
+  depends_on xcode: ["27.0", :build]
+  depends_on arch: :arm64
+  depends_on macos: :golden_gate
+
+  resource "swift-argument-parser" do
+    url "https://github.com/apple/swift-argument-parser/archive/refs/tags/@@PARSER_VERSION@@.tar.gz"
+    sha256 "@@PARSER_SHA256@@"
+  end
+
+  def install
+    resource("swift-argument-parser").stage buildpath/"swift-argument-parser"
+    ENV["SWIFT_BUILD_FLAGS"] = ""
+    ENV["SWIFT_ARGUMENT_PARSER_PATH"] = (buildpath/"swift-argument-parser").to_s
+    ENV["VERSION"] = version.to_s
+    ENV["REVISION"] = "@@REVISION@@"
+    # A local dependency graph avoids fetching stale remote pins.
+    rm "Package.resolved"
+    system "make", "build"
+    bin.install ".build/release/mute-on-lock"
+    doc.install "README.md"
+    pkgshare.install "LICENSE"
+  end
+
+  service do
+    name macos: "dev.msrl.mute-on-lock"
+    run [opt_bin/"mute-on-lock", "run"]
+    keep_alive successful_exit: false
+    require_root false
+    throttle_interval 10
+  end
+
+  test do
+    assert_equal "#{version} (@@REVISION@@)", shell_output("#{bin}/mute-on-lock --version").strip
+    assert_match "Mute speaker and unidentified outputs", shell_output("#{bin}/mute-on-lock --help")
+  end
+end

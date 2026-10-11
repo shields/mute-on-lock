@@ -14,26 +14,35 @@
 
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
+SWIFT_BUILD_FLAGS ?= --disable-automatic-resolution
 
-.PHONY: setup build test lint fmt run
+.PHONY: setup ci-setup build test coverage lint fmt run version prepare-release release-tag release-sign release-bottle release-publish release-tap
 
 setup:
 	bun install --frozen-lockfile
 	lefthook install
 
+ci-setup:
+	brew install lefthook shellcheck shfmt zizmor ripgrep jq
+	$(MAKE) setup
+
 build:
 	./tools/build-info.sh
-	swift build --configuration release --disable-automatic-resolution
+	swift build --configuration release $(SWIFT_BUILD_FLAGS)
 
 test:
+	./tools/test-release.sh
 	./tools/build-info.sh
 	swift test --enable-code-coverage --disable-automatic-resolution
+
+coverage: test
+	./tools/coverage.sh
 
 lint:
 	./tools/check-notices.sh
 	swift format lint --strict --recursive Package.swift Sources Tests tools/*.swift
 	bunx --no-install prettier --check .
-	shellcheck tools/*.sh
+	shellcheck --external-sources tools/*.sh
 	shfmt -d tools/*.sh
 	if [[ -d .github/workflows ]]; then zizmor --persona pedantic .github/workflows; fi
 
@@ -44,3 +53,28 @@ fmt:
 
 run: build
 	.build/release/mute-on-lock run
+
+version:
+	./tools/version.sh
+
+prepare-release:
+	./tools/release-metadata.sh
+	VERSION="$$(jq -r .version dist/release.json)" REVISION="$$(jq -r .revision dist/release.json)" $(MAKE) build
+	cp -p .build/release/mute-on-lock dist/mute-on-lock
+
+release-tag:
+	./tools/create-tag.sh
+
+release-sign:
+	./tools/sign.sh
+
+release-bottle:
+	./tools/formula.sh
+	./tools/bottle.sh
+
+release-publish:
+	./tools/publish.sh
+
+release-tap:
+	cp dist/published/release.json dist/release.json
+	./tools/update-tap.sh

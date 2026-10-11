@@ -14,15 +14,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import Foundation
 import PackageDescription
+
+let argumentParser: Package.Dependency =
+  if let directory = ProcessInfo.processInfo.environment["SWIFT_ARGUMENT_PARSER_PATH"] {
+    .package(path: directory)
+  } else {
+    .package(url: "https://github.com/apple/swift-argument-parser", exact: "1.8.2")
+  }
 
 let package = Package(
   name: "mute-on-lock",
   platforms: [.macOS("27.0")],
   products: [.executable(name: "mute-on-lock", targets: ["MuteOnLock"])],
-  dependencies: [
-    .package(url: "https://github.com/apple/swift-argument-parser", exact: "1.8.2")
-  ],
+  dependencies: [argumentParser],
   targets: [
     .target(name: "LockAudio", swiftSettings: [.treatAllWarnings(as: .error)]),
     .target(

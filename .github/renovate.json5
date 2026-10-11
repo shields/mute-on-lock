@@ -1,0 +1,20 @@
+// Copyright © 2026 Michael Shields
+// SPDX-License-Identifier: Apache-2.0
+
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:best-practices", ":semanticCommitsDisabled"],
+  platformAutomerge: true,
+  packageRules: [
+    {
+      description: "Automerge non-major updates",
+      matchUpdateTypes: ["minor", "patch", "pin", "digest"],
+      automerge: true,
+    },
+    {
+      description: "Automerge dev dependencies",
+      matchDepTypes: ["devDependencies"],
+      automerge: true,
+    },
+  ],
+}

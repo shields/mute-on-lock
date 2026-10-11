@@ -1,0 +1,201 @@
+# Copyright © 2026 Michael Shields
+# SPDX-License-Identifier: Apache-2.0
+
+name: Check and release
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+jobs:
+  check:
+    name: Check native service
+    runs-on: xcode-27
+    outputs:
+      unsigned-artifact: ${{ steps.unsigned.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.3
+      - run: make ci-setup
+      - run: make lint coverage
+      - if:
+          github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+          vars.RELEASE_ENABLED == 'true'
+        run: make prepare-release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if:
+          github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+          vars.RELEASE_ENABLED == 'true'
+        id: unsigned
+        with:
+          name: unsigned-${{ github.sha }}
+          path: |
+            dist/mute-on-lock
+            dist/release.json
+          if-no-files-found: error
+          retention-days: 7
+  security:
+    name: Check workflow security
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          persona: pedantic
+          advanced-security: false
+  tag:
+    name: Tag tested source
+    needs: [check, security]
+    if:
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      vars.RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write # Creates the immutable tag for the tested main commit.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.check.outputs.unsigned-artifact }}
+          path: dist
+          merge-multiple: true
+      - run: make release-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+  sign:
+    name: Sign and notarize executable
+    needs: [check, security]
+    if:
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      vars.RELEASE_ENABLED == 'true'
+    runs-on: xcode-27
+    environment: release
+    outputs:
+      signed-artifact: ${{ steps.signed.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.check.outputs.unsigned-artifact }}
+          path: dist
+          merge-multiple: true
+      - run: make release-sign
+        env:
+          SIGNING_CERTIFICATE_P12: ${{ secrets.SIGNING_CERTIFICATE_P12 }}
+          SIGNING_CERTIFICATE_PASSWORD:
+            ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
+          NOTARY_API_PRIVATE_KEY: ${{ secrets.NOTARY_API_PRIVATE_KEY }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+          DEVELOPER_TEAM_ID: ${{ vars.DEVELOPER_TEAM_ID }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: signed
+        with:
+          name: signed-${{ github.sha }}
+          path: |
+            dist/mute-on-lock
+            dist/release.json
+            dist/*.zip
+          if-no-files-found: error
+          retention-days: 7
+  bottle:
+    name: Build and verify Homebrew bottle
+    needs: [tag, sign]
+    runs-on: xcode-27
+    outputs:
+      release-artifact: ${{ steps.release.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.sign.outputs.signed-artifact }}
+          path: dist
+          merge-multiple: true
+      - run: make release-bottle
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: release
+        with:
+          name: release-${{ github.sha }}
+          path: |
+            dist/*.zip
+            dist/*.bottle.tar.gz
+            dist/mute-on-lock.rb
+            dist/release.json
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    name: Publish immutable release
+    needs: [bottle]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write # Uploads assets and publishes the completed release.
+    outputs:
+      published-artifact: ${{ steps.published.outputs.artifact-id }}
+      promote: ${{ steps.publish.outputs.promote }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.bottle.outputs.release-artifact }}
+          path: dist
+          merge-multiple: true
+      - run: make release-publish
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        id: published
+        with:
+          name: published-${{ github.sha }}
+          path: |
+            dist/published/mute-on-lock.rb
+            dist/published/release.json
+          if-no-files-found: error
+          retention-days: 7
+  tap:
+    name: Propose verified tap update
+    needs: [publish]
+    if: needs.publish.outputs.promote == 'true'
+    runs-on: ubuntu-26.04
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.publish.outputs.published-artifact }}
+          path: dist/published
+          merge-multiple: true
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: tap-token
+        with:
+          app-id: ${{ vars.TAP_APP_ID }}
+          private-key: ${{ secrets.TAP_APP_PRIVATE_KEY }}
+          owner: shields
+          repositories: homebrew-tap
+          permission-contents: write
+          permission-pull-requests: write
+      - run: make release-tap
+        env:
+          GH_TOKEN: ${{ steps.tap-token.outputs.token }}

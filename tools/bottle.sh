@@ -12,6 +12,7 @@ tap_directory=$(brew --repository shields/tap)
 mkdir -p "$tap_directory/Formula"
 cp dist/mute-on-lock.rb "$tap_directory/Formula/mute-on-lock.rb"
 brew style "$tap_directory/Formula/mute-on-lock.rb"
+brew audit --strict --formula shields/tap/mute-on-lock
 brew install --build-bottle shields/tap/mute-on-lock
 installed_binary=$(brew --prefix shields/tap/mute-on-lock)/bin/mute-on-lock
 [[ $("$installed_binary" --version) == "$release_version ($release_revision)" ]] || die "Source build identifies another release"

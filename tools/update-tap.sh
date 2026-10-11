@@ -15,7 +15,7 @@ main_tree=$(gh api "repos/$tap_repo/git/commits/$main_commit" --jq .tree.sha)
 formula_blob=$(gh api "repos/$tap_repo/git/trees/$main_tree?recursive=1" --jq '.tree[] | select(.path == "Formula/mute-on-lock.rb") | .sha')
 if [[ -n $formula_blob ]]; then
 	current_formula=$(gh api "repos/$tap_repo/git/blobs/$formula_blob" --jq .content | base64 --decode)
-	current_version=$(sed -n 's/^  version "\([^"]*\)".*/\1/p' <<<"$current_formula")
+	current_version=$(sed -n 's|^  url "https://github.com/shields/mute-on-lock/archive/refs/tags/v\([^"]*\)\.tar\.gz"$|\1|p' <<<"$current_formula")
 	# Conditional expressions discard command-substitution exit status.
 	version_order=$(compare_versions "$release_version" "$current_version")
 	if [[ $version_order != newer ]]; then exit 0; fi

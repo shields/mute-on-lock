@@ -19,7 +19,7 @@ jq --null-input --arg revision "$GITHUB_SHA" \
 	>"$test_directory/dist/release.json"
 printf '# Copyright © 2026 Michael Shields\n# SPDX-License-Identifier: Apache-2.0\n' \
 	>"$test_directory/dist/published/mute-on-lock.rb"
-for state in pending enabled failure invalid_version; do
+for state in pending enabled failure invalid_version older equal newer; do
 	export MOCK_STATE=$state
 	: >"$MOCK_LOG"
 	status=0
@@ -47,6 +47,14 @@ for state in pending enabled failure invalid_version; do
 		[[ $status -eq 0 ]] || exit "$status"
 		;;
 	esac
+	if [[ $state == equal || $state == newer ]]; then
+		if rg --quiet '^(api --method |pr )' "$MOCK_LOG"; then
+			echo 'Tap updater modified a formula that is already current' >&2
+			exit 1
+		fi
+	elif [[ $state == older ]]; then
+		rg --quiet '^api --method PUT repos/shields/homebrew-tap/contents/Formula/mute-on-lock.rb ' "$MOCK_LOG"
+	fi
 	if [[ $state == pending ]]; then
 		rg --quiet '^pr merge 7 --repo shields/homebrew-tap --auto --squash$' "$MOCK_LOG"
 	elif rg --quiet '^pr merge ' "$MOCK_LOG"; then

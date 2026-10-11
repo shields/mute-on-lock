@@ -5,7 +5,6 @@ class MuteOnLock < Formula
   desc "Mute speakers when macOS locks while leaving headphones playing"
   homepage "https://github.com/shields/mute-on-lock"
   url "https://github.com/shields/mute-on-lock/archive/refs/tags/v@@VERSION@@.tar.gz"
-  version "@@VERSION@@"
   sha256 "@@SOURCE_SHA256@@"
   license "Apache-2.0"
 

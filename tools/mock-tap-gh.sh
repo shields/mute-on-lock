@@ -10,12 +10,19 @@ case "$1 $2" in
 'api repos/shields/homebrew-tap/git/trees/0000000000000000000000000000000000000002?recursive=1')
 	if [[ $# -eq 2 ]]; then
 		printf '{"tree":[]}\n'
-	elif [[ $MOCK_STATE == invalid_version ]]; then
+	elif [[ $MOCK_STATE == invalid_version || $MOCK_STATE == older || $MOCK_STATE == equal || $MOCK_STATE == newer ]]; then
 		printf '%040d\n' 3
 	fi
 	;;
 'api repos/shields/homebrew-tap/git/blobs/0000000000000000000000000000000000000003')
-	printf '  version "development"\n' | base64
+	case $MOCK_STATE in
+	invalid_version) current_version=development ;;
+	older) current_version=0.20261009.1 ;;
+	equal) current_version=0.20261010.1 ;;
+	newer) current_version=0.20261011.1 ;;
+	*) exit 64 ;;
+	esac
+	printf '  url "https://github.com/shields/mute-on-lock/archive/refs/tags/v%s.tar.gz"\n    version "1.8.2"\n' "$current_version" | base64
 	;;
 'api repos/shields/homebrew-tap/git/matching-refs/heads/release/mute-on-lock-0.20261010.1') echo '[]' ;;
 'api --method')
@@ -31,7 +38,7 @@ case "$1 $2" in
 'pr view')
 	case $MOCK_STATE in
 	pending) echo true ;;
-	enabled) echo false ;;
+	enabled | older) echo false ;;
 	failure)
 		echo 'Unable to read pull request' >&2
 		exit 7

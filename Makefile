@@ -16,7 +16,7 @@ SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 SWIFT_BUILD_FLAGS ?= --disable-automatic-resolution
 
-.PHONY: setup ci-setup build test coverage lint fmt run version prepare-release release-tag release-sign release-bottle release-publish release-tap
+.PHONY: setup ci-setup build test coverage lint fmt run version prepare-release release-tag release-bottle release-publish release-tap
 
 setup:
 	bun install --frozen-lockfile
@@ -59,14 +59,9 @@ version:
 
 prepare-release:
 	./tools/release-metadata.sh
-	VERSION="$$(jq -r .version dist/release.json)" REVISION="$$(jq -r .revision dist/release.json)" $(MAKE) build
-	cp -p .build/release/mute-on-lock dist/mute-on-lock
 
 release-tag:
 	./tools/create-tag.sh
-
-release-sign:
-	./tools/sign.sh
 
 release-bottle:
 	./tools/formula.sh

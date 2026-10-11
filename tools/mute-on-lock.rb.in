@@ -14,13 +14,15 @@ class MuteOnLock < Formula
   depends_on macos: :golden_gate
 
   resource "swift-argument-parser" do
-    url "https://github.com/apple/swift-argument-parser/archive/refs/tags/@@PARSER_VERSION@@.tar.gz"
+    url "https://github.com/apple/swift-argument-parser/archive/@@PARSER_REVISION@@.tar.gz"
+    version "@@PARSER_VERSION@@"
     sha256 "@@PARSER_SHA256@@"
   end
 
   def install
     resource("swift-argument-parser").stage buildpath/"swift-argument-parser"
-    ENV["SWIFT_BUILD_FLAGS"] = ""
+    # Homebrew confines the build, and SwiftPM cannot nest its sandbox.
+    ENV["SWIFT_BUILD_FLAGS"] = "--disable-sandbox"
     ENV["SWIFT_ARGUMENT_PARSER_PATH"] = (buildpath/"swift-argument-parser").to_s
     ENV["VERSION"] = version.to_s
     ENV["REVISION"] = "@@REVISION@@"

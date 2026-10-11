@@ -16,7 +16,7 @@ jobs:
     name: Check native service
     runs-on: xcode-27
     outputs:
-      unsigned-artifact: ${{ steps.unsigned.outputs.artifact-id }}
+      metadata-artifact: ${{ steps.metadata.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,12 +35,10 @@ jobs:
         if:
           github.event_name == 'push' && github.ref == 'refs/heads/main' &&
           vars.RELEASE_ENABLED == 'true'
-        id: unsigned
+        id: metadata
         with:
-          name: unsigned-${{ github.sha }}
-          path: |
-            dist/mute-on-lock
-            dist/release.json
+          name: metadata-${{ github.sha }}
+          path: dist/release.json
           if-no-files-found: error
           retention-days: 7
   security:
@@ -69,53 +67,15 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          artifact-ids: ${{ needs.check.outputs.unsigned-artifact }}
+          artifact-ids: ${{ needs.check.outputs.metadata-artifact }}
           path: dist
           merge-multiple: true
       - run: make release-tag
         env:
           GH_TOKEN: ${{ github.token }}
-  sign:
-    name: Sign and notarize executable
-    needs: [check, security]
-    if:
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      vars.RELEASE_ENABLED == 'true'
-    runs-on: xcode-27
-    environment: release
-    outputs:
-      signed-artifact: ${{ steps.signed.outputs.artifact-id }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          artifact-ids: ${{ needs.check.outputs.unsigned-artifact }}
-          path: dist
-          merge-multiple: true
-      - run: make release-sign
-        env:
-          SIGNING_CERTIFICATE_P12: ${{ secrets.SIGNING_CERTIFICATE_P12 }}
-          SIGNING_CERTIFICATE_PASSWORD:
-            ${{ secrets.SIGNING_CERTIFICATE_PASSWORD }}
-          NOTARY_API_PRIVATE_KEY: ${{ secrets.NOTARY_API_PRIVATE_KEY }}
-          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
-          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
-          DEVELOPER_TEAM_ID: ${{ vars.DEVELOPER_TEAM_ID }}
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        id: signed
-        with:
-          name: signed-${{ github.sha }}
-          path: |
-            dist/mute-on-lock
-            dist/release.json
-            dist/*.zip
-          if-no-files-found: error
-          retention-days: 7
   bottle:
     name: Build and verify Homebrew bottle
-    needs: [tag, sign]
+    needs: [check, tag]
     runs-on: xcode-27
     outputs:
       release-artifact: ${{ steps.release.outputs.artifact-id }}
@@ -125,7 +85,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          artifact-ids: ${{ needs.sign.outputs.signed-artifact }}
+          artifact-ids: ${{ needs.check.outputs.metadata-artifact }}
           path: dist
           merge-multiple: true
       - run: make release-bottle
@@ -134,7 +94,6 @@ jobs:
         with:
           name: release-${{ github.sha }}
           path: |
-            dist/*.zip
             dist/*.bottle.tar.gz
             dist/mute-on-lock.rb
             dist/release.json

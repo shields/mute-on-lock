@@ -42,7 +42,7 @@ if [[ -z $branch_blob ]] || ! cmp -s dist/current-formula.rb dist/published/mute
 fi
 pr_number=$(gh pr list --repo "$tap_repo" --head "$branch_name" --state open --json number --jq '.[0].number // empty')
 if [[ -z $pr_number ]]; then
-	printf 'Install mute-on-lock %s from its signed, notarized release. The bottle preserves the signed executable.\n' "$release_version" >dist/tap-pr-body.txt
+	printf 'Install mute-on-lock %s from its tested release. The bottle preserves the verified executable.\n' "$release_version" >dist/tap-pr-body.txt
 	gh pr create --repo "$tap_repo" --head "$branch_name" --base main \
 		--title "Update mute-on-lock to $release_version" --body-file dist/tap-pr-body.txt
 	pr_number=$(gh pr list --repo "$tap_repo" --head "$branch_name" --state open --json number --jq '.[0].number')

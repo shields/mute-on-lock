@@ -22,7 +22,6 @@ done < <(jq --raw-output 'flatten | .[] | select(.draft == false and .prerelease
 if [[ -z $existing_release ]]; then
 	gh release create "$release_tag" --repo "$release_repo" --verify-tag --draft \
 		--title "Mute on lock $release_version" --generate-notes \
-		"dist/mute-on-lock-$release_version-macos-arm64.zip" \
 		"dist/mute-on-lock-$release_version.arm64_golden_gate.bottle.tar.gz" \
 		dist/mute-on-lock.rb dist/release.json dist/SHA256SUMS
 	gh release edit "$release_tag" --repo "$release_repo" --draft=false --latest="$promote"
@@ -30,7 +29,7 @@ fi
 mkdir -p dist/published
 gh release download "$release_tag" --repo "$release_repo" --dir dist/published \
 	--pattern mute-on-lock.rb --pattern release.json --pattern SHA256SUMS
-jq --exit-status '.notarization == "Accepted" and (.executableSHA256 | test("^[0-9a-f]{64}$"))' dist/published/release.json >/dev/null
+jq --exit-status '.executableSHA256 | test("^[0-9a-f]{64}$")' dist/published/release.json >/dev/null
 (
 	cd dist/published
 	awk '$2 == "mute-on-lock.rb" || $2 == "release.json"' SHA256SUMS >metadata.sha256

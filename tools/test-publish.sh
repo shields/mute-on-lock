@@ -17,13 +17,15 @@ export GITHUB_OUTPUT=$test_directory/outputs
 export PATH=$test_directory/bin:$PATH
 printf '# Copyright © 2026 Michael Shields\n# SPDX-License-Identifier: Apache-2.0\n' >"$MOCK_PUBLISHED/mute-on-lock.rb"
 jq --null-input --arg revision "$GITHUB_SHA" \
-	'{copyright:"Copyright © 2026 Michael Shields", license:"Apache-2.0", version:"0.20261010.1", revision:$revision, notarization:"Accepted", executableSHA256:("b" * 64)}' \
+	'{copyright:"Copyright © 2026 Michael Shields", license:"Apache-2.0", version:"0.20261010.1", revision:$revision, executableSHA256:("b" * 64)}' \
 	>"$MOCK_PUBLISHED/release.json"
+printf '# Copyright © 2026 Michael Shields\n# SPDX-License-Identifier: Apache-2.0\n' >"$MOCK_PUBLISHED/mute-on-lock-0.20261010.1.arm64_golden_gate.bottle.tar.gz"
 (
 	cd "$MOCK_PUBLISHED"
-	shasum -a 256 mute-on-lock.rb release.json >SHA256SUMS
+	shasum -a 256 mute-on-lock-0.20261010.1.arm64_golden_gate.bottle.tar.gz mute-on-lock.rb release.json >SHA256SUMS
 )
-cp "$MOCK_PUBLISHED/release.json" "$test_directory/dist/release.json"
+cp "$MOCK_PUBLISHED"/mute-on-lock.rb "$MOCK_PUBLISHED"/release.json "$MOCK_PUBLISHED"/SHA256SUMS \
+	"$MOCK_PUBLISHED/mute-on-lock-0.20261010.1.arm64_golden_gate.bottle.tar.gz" "$test_directory/dist/"
 export MOCK_STATE=new
 bash "$test_directory/tools/publish.sh"
 rg --quiet '^release create ' "$MOCK_LOG"
@@ -50,6 +52,23 @@ export MOCK_STATE=older
 bash "$test_directory/tools/publish.sh"
 rg --quiet '^release edit .*--latest=false$' "$MOCK_LOG"
 rm -rf "$test_directory/dist/published"
+export MOCK_STATE=existing
+jq '.executableSHA256 = "invalid"' "$MOCK_PUBLISHED/release.json" >"$test_directory/invalid.json"
+mv "$test_directory/invalid.json" "$MOCK_PUBLISHED/release.json"
+(
+	cd "$MOCK_PUBLISHED"
+	shasum -a 256 mute-on-lock.rb release.json >SHA256SUMS
+)
+if bash "$test_directory/tools/publish.sh" >/dev/null 2>&1; then
+	echo 'Accepted an invalid published executable checksum' >&2
+	exit 1
+fi
+jq '.executableSHA256 = ("b" * 64)' "$MOCK_PUBLISHED/release.json" >"$test_directory/valid.json"
+mv "$test_directory/valid.json" "$MOCK_PUBLISHED/release.json"
+(
+	cd "$MOCK_PUBLISHED"
+	shasum -a 256 mute-on-lock.rb release.json >SHA256SUMS
+)
 printf 'corruption\n' >>"$MOCK_PUBLISHED/mute-on-lock.rb"
 if bash "$test_directory/tools/publish.sh" >/dev/null 2>&1; then
 	echo 'Accepted corrupted published metadata' >&2

@@ -11,6 +11,7 @@ brew tap shields/tap
 tap_directory=$(brew --repository shields/tap)
 mkdir -p "$tap_directory/Formula"
 cp dist/mute-on-lock.rb "$tap_directory/Formula/mute-on-lock.rb"
+brew trust --formula shields/tap/mute-on-lock
 brew style "$tap_directory/Formula/mute-on-lock.rb"
 brew audit --strict --formula shields/tap/mute-on-lock
 brew install --build-bottle shields/tap/mute-on-lock

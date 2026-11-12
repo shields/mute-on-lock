@@ -21,3 +21,5 @@ fi
 GITHUB_ACTIONS=true GITHUB_REPOSITORY=shields/mute-on-lock GITHUB_REF=refs/heads/main require_release_context
 bash tools/test-publish.sh
 bash tools/test-update-tap.sh
+
+bash tools/test-bottle.sh

@@ -38,13 +38,13 @@ test:
 coverage: test
 	./tools/coverage.sh
 
-lint:
+lint: actions-lock-verify-local
 	./tools/check-notices.sh
 	swift format lint --strict --recursive Package.swift Sources Tests tools/*.swift
 	bunx --no-install prettier --check .
 	shellcheck --external-sources tools/*.sh
 	shfmt -d tools/*.sh
-	if [[ -d .github/workflows ]]; then zizmor --persona pedantic .github/workflows; fi
+	if [[ -d .github/workflows ]]; then zizmor --persona pedantic --strict-collection .; fi
 
 fmt:
 	swift format format --in-place --recursive Package.swift Sources Tests tools/*.swift
@@ -73,3 +73,17 @@ release-publish:
 release-tap:
 	cp dist/published/release.json dist/release.json
 	./tools/update-tap.sh
+
+.PHONY: actions-lock-install actions-lock actions-lock-verify-local actions-lock-verify
+
+actions-lock-install:
+	gh extension install github/gh-actions-lock --pin v0.4.1 --force
+
+actions-lock:
+	gh actions-lock --no-interactive
+
+actions-lock-verify-local:
+	gh actions-lock --verify-local
+
+actions-lock-verify:
+	gh actions-lock --verify

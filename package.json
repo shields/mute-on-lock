@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "prettier": "3.10.0"
+    "prettier": "3.10.1"
   },
   "copyright": "Copyright © 2026 Michael Shields",
   "license": "Apache-2.0"

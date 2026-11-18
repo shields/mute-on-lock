@@ -149,7 +149,7 @@ jobs:
           artifact-ids: ${{ needs.publish.outputs.published-artifact }}
           path: dist/published
           merge-multiple: true
-      - uses: actions/create-github-app-token@v3.3.0
+      - uses: actions/create-github-app-token@v3.4.0
         id: tap-token
         with:
           app-id: ${{ vars.TAP_APP_ID }}

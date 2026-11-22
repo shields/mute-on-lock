@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2.2.0
         with:
-          bun-version: 1.4.4
+          bun-version: 1.4.5
       - run: make ci-setup
       - run: make actions-lock-install
         env:
